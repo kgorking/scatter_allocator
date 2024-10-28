@@ -6,10 +6,6 @@
 #define UNITTEST static_assert
 #else
 #include <cassert>
-#ifdef __cpp_placeholder_variables
-#define xassert(e, sz) static bool _ = (assert((sz, e)), 'U');
-#else
-#define xassert(e, sz) assert((e));
-#endif
+#define xassert(e, sz) assert((e))
 #define UNITTEST xassert
 #endif
