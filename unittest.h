@@ -7,9 +7,9 @@
 #else
 #include <cassert>
 #ifdef __cpp_placeholder_variables
-#define xassert(e, sz) static char _ = (assert((e) && (sz)), 'U');
+#define xassert(e, sz) static bool _ = (assert((sz, e)), 'U');
 #else
-#define xassert(e, sz) assert((e) && (sz));
+#define xassert(e, sz) assert((e));
 #endif
 #define UNITTEST xassert
 #endif

@@ -9,8 +9,10 @@ if (POLICY CMP0141)
 endif()
 
 project (scatter_allocator)
-add_library(scatter_allocator "unittests.cpp")
-target_sources(scatter_allocator PUBLIC FILE_SET CXX_MODULES FILES
-	"scatter_allocator.cppm")
+add_library(scatter_allocator)
+target_sources(scatter_allocator PUBLIC FILE_SET CXX_MODULES FILES "scatter_allocator.cppm")
 
 # TODO: Add tests and install targets if needed.
+add_executable (unittest "unittests.cpp")
+target_link_libraries(unittest scatter_allocator)
+add_test(unittest unittest)
