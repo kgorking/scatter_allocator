@@ -10,6 +10,15 @@ using namespace kg;
 
 int main() {
 	UNITTEST([] {
+		scatter_allocator<int> alloc;
+
+		std::span<int, 100> span = alloc.template allocate_contiguous<100>();
+		alloc.deallocate(span);
+
+		return true;
+		}(), "allocates contiguously correctly");
+
+	UNITTEST([] {
 		constexpr std::size_t elems_to_alloc = 123;
 		scatter_allocator<int> alloc;
 		std::size_t total_alloc = 0;

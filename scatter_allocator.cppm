@@ -7,8 +7,8 @@
 export module kg.scatter_allocator;
 
 namespace kg {
-	template <typename Fn, typename T>
-	concept callback_takes_a_span = std::invocable<Fn, std::span<T>>;
+	template <typename Fn, typename T, std::size_t Extent = std::dynamic_extent>
+	concept callback_takes_a_span = std::invocable<Fn, std::span<T, Extent>>;
 
 	template<size_t N>
 	concept power_of_two = (std::popcount(N) == 1);
@@ -45,8 +45,7 @@ namespace kg {
 			return t;
 		}
 
-		// EXTENT !!
-		constexpr void allocate_with_callback(std::size_t const count, callback_takes_a_span<T> auto&& alloc_callback) {
+		constexpr void allocate_with_callback(std::size_t const count, callback_takes_a_span<T> auto&& callback) {
 			std::size_t remaining_count = count;
 
 			// Take space from free list
@@ -55,7 +54,7 @@ namespace kg {
 
 				std::size_t const min_space = std::min(remaining_count, free_span.size());
 				std::span<T> span = free_span.subspan(0, min_space);
-				alloc_callback(span);
+				callback(span);
 
 				if (min_space == free_span.size()) {
 					// All the free space was used, so remove the span from the free list
@@ -73,10 +72,34 @@ namespace kg {
 			}
 
 			// Take space from pools
-			pools.alloc(remaining_count, alloc_callback); // TODO forward
+			pools.alloc(remaining_count, callback); // TODO forward
 		}
 
-		constexpr void deallocate(std::span<T> const span) {
+		template<std::size_t Count>
+		[[nodiscard]]
+		constexpr std::span<T, Count> allocate_contiguous() {
+			// Look for space in the free list
+			for (auto it = free_list.begin(); it != free_list.end(); ++it) {
+				std::span<T>& span = *it;
+				if (span.size() == Count) {
+					auto const subspan = span.template subspan<0, Count>();
+					free_list.erase(it);
+					return subspan;
+				}
+
+				if (span.size() > Count) {
+					auto const subspan = span.template subspan<0, Count>();
+					span = span.subspan(Count + 1);
+					return subspan;
+				}
+			}
+
+			// Take space from pools
+			return pools.template alloc_contiguous<Count>();
+		}
+
+		template<std::size_t Extent = std::dynamic_extent>
+		constexpr void deallocate(std::span<T, Extent> const span) {
 #ifdef _DEBUG
 			// Poison the allocation
 			if (!std::is_constant_evaluated())
@@ -84,7 +107,7 @@ namespace kg {
 #endif
 
 			// Add it to the free list
-			free_list.push_back(span);
+			free_list.emplace_back(span);
 		}
 
 	private:
@@ -117,7 +140,7 @@ namespace kg {
 				std::size_t const min_space = std::min({ remaining_count, (data.size() - next_available) });
 				assert(min_space > 0);
 
-				auto span = data.subspan(next_available, min_space);// std::span<T>{ data.data() + next_available, min_space };
+				auto span = data.subspan(next_available, min_space);
 				callback(span);
 
 				next_available += min_space;
@@ -127,6 +150,18 @@ namespace kg {
 					add_next();
 					next->alloc(remaining_count, callback);
 				}
+			}
+
+			template<std::size_t Count>
+			constexpr std::span<T, Count> alloc_contiguous() {
+				if (Count > (data.size() - next_available)) {
+					add_next();
+					return next->template alloc_contiguous<Count>();
+				}
+
+				auto const span = data.subspan(next_available, Count);
+				next_available += Count;
+				return span.template subspan<0, Count>();
 			}
 		};
 
