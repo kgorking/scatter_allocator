@@ -23,8 +23,8 @@ namespace kg {
 	//   This way old pools will be filled with new data before newer pools are tapped.
 	//   Filling it 'from the back' like this should keep fragmentation down.
 	export
-	template <typename T, std::size_t InitialSize = 16, std::size_t MaximumPoolSize = 8 * 1024 * 1024/* *1024 */>
-		requires (power_of_two<InitialSize> && power_of_two<MaximumPoolSize>)
+	template <typename T, std::size_t InitialSize = 16>
+		requires (power_of_two<InitialSize>)
 	struct scatter_allocator {
 		static_assert(InitialSize > 0);
 
@@ -79,7 +79,8 @@ namespace kg {
 		[[nodiscard]]
 		constexpr std::span<T, Count> allocate_contiguous() {
 			// Look for space in the free list
-			for (auto it = free_list.begin(); it != free_list.end(); ++it) {
+			auto it = free_list.begin();
+			for (; it != free_list.end(); ++it) {
 				std::span<T>& span = *it;
 				if (span.size() == Count) {
 					auto const subspan = span.template subspan<0, Count>();
